@@ -6,6 +6,7 @@ license = "MIT/Apache-2.0"
 description = "A panic hook which logs panic messages rather than printing them"
 repository = "https://github.com/sfackler/rust-log-panics"
 readme = "README.md"
+publish = ["astropad"]
 
 [features]
 with-backtrace = ["backtrace"]
