@@ -18,7 +18,11 @@ extern crate log;
 #[cfg(feature = "with-backtrace")]
 extern crate backtrace;
 
-use std::{fmt, panic, thread};
+use std::{
+    fmt,
+    panic::{self, PanicInfo},
+    thread,
+};
 
 use backtrace::Backtrace;
 
@@ -48,38 +52,43 @@ impl fmt::Debug for Shim {
 /// After this method is called, all panics will be logged rather than printed
 /// to standard error.
 pub fn init() {
-    panic::set_hook(Box::new(|info| {
-        let backtrace = Backtrace::default();
+    panic::set_hook(Box::new(|info| log_panic(info)));
+}
 
-        let thread = thread::current();
-        let thread = thread.name().unwrap_or("<unnamed>");
+/// Logs a panic.
+///
+/// You can use this on its own if you're already using a custom panic handler.
+pub fn log_panic(info: &PanicInfo) {
+    let backtrace = Backtrace::default();
 
-        let msg = match info.payload().downcast_ref::<&'static str>() {
-            Some(s) => *s,
-            None => match info.payload().downcast_ref::<String>() {
-                Some(s) => &**s,
-                None => "Box<Any>",
-            },
-        };
+    let thread = thread::current();
+    let thread = thread.name().unwrap_or("<unnamed>");
 
-        match info.location() {
-            Some(location) => {
-                error!(
-                    target: "panic", "thread '{}' panicked at '{}': {}:{}{:?}",
-                    thread,
-                    msg,
-                    location.file(),
-                    location.line(),
-                    Shim(backtrace)
-                );
-            }
-            None => error!(
-                target: "panic",
-                "thread '{}' panicked at '{}'{:?}",
+    let msg = match info.payload().downcast_ref::<&'static str>() {
+        Some(s) => *s,
+        None => match info.payload().downcast_ref::<String>() {
+            Some(s) => &**s,
+            None => "Box<Any>",
+        },
+    };
+
+    match info.location() {
+        Some(location) => {
+            error!(
+                target: "panic", "thread '{}' panicked at '{}': {}:{}{:?}",
                 thread,
                 msg,
+                location.file(),
+                location.line(),
                 Shim(backtrace)
-            ),
+            );
         }
-    }));
+        None => error!(
+            target: "panic",
+            "thread '{}' panicked at '{}'{:?}",
+            thread,
+            msg,
+            Shim(backtrace)
+        ),
+    }
 }
